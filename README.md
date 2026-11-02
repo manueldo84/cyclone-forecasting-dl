@@ -3,8 +3,7 @@
 **Course:** Artificial Neural Networks and Deep Learning | **Assessment:** ESE Project Implementation and Deployment (CIA-III)
 **Author:** Manu Mathew Eldo, 24215216, 5BDA
 
-**Live demo:** https://github.com/manueldo84/cyclone-forecasting-dl/ &nbsp;|&nbsp;
-[Open the notebook in Colab](https://colab.research.google.com/github/[your-username]/[repository-name]/blob/main/notebooks/Cyclone_Forecasting.ipynb)
+**Live demo:** https://manueldo84.github.io/cyclone-forecasting-dl/
 
 Forecasts a tropical cyclone's **position, wind speed and distance to land at +6, +12, +18 and +24 hours** from its last 48 hours of
 observations, with an uncertainty estimate and the probability of **landfall approach** and **rapid intensification**. Inputs combine storm
