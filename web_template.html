@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tropical Cyclone 24-hour Forecast</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:#f4f6f9;color:#14202e}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.hero{background:linear-gradient(120deg,#0b3d91,#1e88e5 60%,#4fc3f7);color:#fff;border-radius:14px;padding:22px 26px}
+.hero h1{margin:0;font-size:28px}.hero p{margin:6px 0 0;font-size:15px;opacity:.95}
+.warn{background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:9px 14px;font-size:13px;color:#5d4037;margin:8px 0}
+.tabs{display:flex;gap:6px;margin:12px 0 0;flex-wrap:wrap}
+.tab{padding:10px 16px;border-radius:10px 10px 0 0;background:#e3e9f1;cursor:pointer;font-weight:600;border:0;font-size:14px;color:#334155}
+.tab.active{background:#fff;color:#0b3d91}
+.panel{display:none;background:#fff;border-radius:0 12px 12px 12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.panel.active{display:block}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:10px}
+label{font-size:13px;color:#4b5563;display:block;margin-bottom:3px}
+select,input,textarea{font:inherit;padding:8px;border:1px solid #cbd5e1;border-radius:8px}
+textarea{width:100%;box-sizing:border-box;font-family:Consolas,monospace;font-size:13px}
+button.go{background:#1e6fd9;color:#fff;border:0;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer;font-size:14px}
+.cards{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px}
+.card{flex:1;min-width:190px;background:#fff;border:1px solid #e3e8ef;border-left:6px solid #1e88e5;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card .l{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}
+.card .v{font-size:26px;font-weight:700;margin:2px 0}.card .s{font-size:13px;color:#4b5563}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}
+th{background:#0b2545;color:#fff;text-align:left;padding:8px}td{padding:7px 8px;border-bottom:1px solid #e3e8ef}
+.scroll{overflow-x:auto}
+#grid td{padding:3px 4px}#grid input{width:92px;padding:5px 6px;font-size:13px;text-align:right}
+#grid td.n{color:#64748b;width:28px;text-align:center}
+button.sec{background:#e3e9f1;color:#0b3d91}.muted{color:#64748b;font-size:13px}.err{color:#b3261e;font-weight:600}
+.bar{background:#1e88e5;height:16px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero"><h1>Tropical Cyclone 24-hour Forecast</h1>
+    <p>Deep-learning ensemble using storm history, geography, sea-surface temperature, vertical wind shear and steering flow. Runs entirely in your browser.</p></div>
+  <div class="warn">Research / education demo. Not an operational forecast; never use it for safety decisions. Follow your national weather service (IMD in India).</div>
+  <div class="tabs">
+    <button class="tab active" data-tab="hind">Hindcast: replay real storms</button>
+    <button class="tab" data-tab="manual">Your own observations</button>
+    <button class="tab" data-tab="evid">Model and evidence</button>
+    <div style="margin-left:auto;align-self:center;font-size:13px;color:#334155">Map: <select id="mapStyle"></select></div>
+  </div>
+
+  <div id="hind" class="panel active">
+    <p class="muted">Pick a storm (all were held out from training) and a forecast time, then compare the forecast with what actually happened.</p>
+    <div class="row">
+      <div><label for="storm">Storm</label><select id="storm"></select></div>
+      <div style="flex:1;min-width:240px"><label for="origin">Forecast issued at observation # (6-hourly): <b id="originVal"></b></label>
+        <input id="origin" type="range" style="width:100%"></div>
+      <button class="go" id="runHind">Run forecast</button>
+    </div>
+    <div id="hindCards" class="cards"></div>
+    <div id="hindMap"></div>
+    <p class="muted">The default map draws coastlines and countries with no key or tile server. If the background does not load (offline), choose <b>Plain</b> in the Map menu at the top right: the tracks and circles still show.</p>
+    <div id="hindTable" class="scroll"></div>
+  </div>
+
+  <div id="manual" class="panel">
+    <p class="muted">Enter <b>9 or more</b> consecutive 6-hourly observations, oldest first. Lat, lon, wind and distance to land are required;
+      leave the optional columns empty to use typical values (real SST, shear and steering winds improve accuracy).
+      Tip: you can paste rows copied from a spreadsheet into any cell.</p>
+    <div class="scroll"><table id="grid"><thead><tr><th>#</th><th>lat</th><th>lon</th><th>wind (kt)</th><th>pressure (hPa)<br><small>optional</small></th>
+      <th>dist. to land (km)</th><th>SST (°C)<br><small>optional</small></th><th>shear (m/s)<br><small>optional</small></th>
+      <th>steer u (m/s)<br><small>optional</small></th><th>steer v (m/s)<br><small>optional</small></th></tr></thead><tbody id="gridBody"></tbody></table></div>
+    <div class="row" style="margin-top:8px"><button class="go sec" id="addRow">Add row</button><button class="go sec" id="delRow">Remove last row</button>
+      <button class="go sec" id="resetGrid">Reset example</button></div>
+    <div class="row" style="margin-top:10px">
+      <div><label for="month">Month</label><select id="month"></select></div>
+      <button class="go" id="runManual">Run forecast</button>
+      <span id="manualMsg" class="err"></span>
+    </div>
+    <div id="manualCards" class="cards"></div>
+    <div id="manualMap"></div>
+    <div id="manualTable" class="scroll"></div>
+  </div>
+
+  <div id="evid" class="panel"></div>
+</div>
+
+<script>
+const DATA = __DATA__;
+// ==== LOGIC START ====
+const H = 8, STEPS = 4;
+const SC = DATA.scaler, STORMS = DATA.storms, SUM = DATA.summary, CONE = SC.cone67;
+const ENV_DEFAULT = {sst: 27.5, shear: 8.0, steer_u: -3.0, steer_v: 1.0};
+const FEATS = ["lat","sin_lon","cos_lon","wind_kt","log_dist2land","dlat","dlon","dwind","sin_month","cos_month",
+  "speed_kmh","sin_heading","cos_heading","pres_hpa","has_pres","sst_c","shear_ms","steer_u","steer_v"];
+const IDX = {}; FEATS.forEach((n, i) => IDX[n] = i);
+const CATS = [[34,"Depression","#6c757d"],[64,"Tropical storm","#1e88e5"],[83,"Category 1","#43a047"],
+  [96,"Category 2","#c0ca33"],[113,"Category 3","#fb8c00"],[137,"Category 4","#e53935"],[1e9,"Category 5","#8e24aa"]];
+function category(w){ for (const c of CATS) if (w < c[0]) return [c[1], c[2]]; return [CATS[6][1], CATS[6][2]]; }
+function b64ToF32(s){ const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Float32Array(u.buffer); }
+const MODELS = DATA.models.map(m => m.map(l => ({w: b64ToF32(l.w), b: b64ToF32(l.b), nIn: l.n_in, nOut: l.n_out, act: l.act})));
+
+function haversineKm(la1, lo1, la2, lo2){
+  const r = Math.PI / 180, p1 = la1 * r, p2 = la2 * r, dphi = p2 - p1, dl = (lo2 - lo1) * r;
+  const a = Math.sin(dphi/2)**2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2)**2;
+  return 2 * 6371.0 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, a))));
+}
+function unwrapLon(lonDeg){                      // same algorithm as numpy.unwrap on radians
+  const x = lonDeg.map(v => v * Math.PI / 180), out = [x[0]]; let cum = 0;
+  for (let i = 1; i < x.length; i++){
+    const dd = x[i] - x[i-1];
+    let ddmod = (((dd + Math.PI) % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI) - Math.PI;
+    if (ddmod === -Math.PI && dd > 0) ddmod = Math.PI;
+    let corr = ddmod - dd; if (Math.abs(dd) < Math.PI) corr = 0;
+    cum += corr; out.push(x[i] + cum);
+  }
+  return out.map(v => v * 180 / Math.PI);
+}
+function pressureFromWind(w){ return 1010.0 - Math.pow(Math.max(w, 1.0) / 6.7, 1 / 0.644); }
+function stormFeatures(o){
+  const n = o.lat.length, lonU = unwrapLon(o.lon), F = [];
+  for (let i = 0; i < n; i++){
+    const dlat = i ? o.lat[i] - o.lat[i-1] : 0, dlon = i ? lonU[i] - lonU[i-1] : 0, dw = i ? o.wind[i] - o.wind[i-1] : 0;
+    const lr = o.lon[i] * Math.PI / 180, m = 2 * Math.PI * o.month[i] / 12;
+    const dy = dlat * 111.19, dx = dlon * 111.19 * Math.cos(o.lat[i] * Math.PI / 180);
+    const speed = Math.hypot(dx, dy) / 6, head = Math.atan2(dx, dy);
+    const sh = speed > 0 ? Math.sin(head) : 0, ch = speed > 0 ? Math.cos(head) : 1;
+    const pv = o.pres ? o.pres[i] : NaN, has = Number.isFinite(pv) ? 1 : 0, p = has ? pv : pressureFromWind(o.wind[i]);
+    const fill = (a, d) => (a && Number.isFinite(a[i])) ? a[i] : d;
+    F.push([o.lat[i], Math.sin(lr), Math.cos(lr), o.wind[i], Math.log1p(Math.max(o.d2l[i], 0)), dlat, dlon, dw,
+      Math.sin(m), Math.cos(m), speed, sh, ch, p, has, fill(o.sst, ENV_DEFAULT.sst), fill(o.shear, ENV_DEFAULT.shear),
+      fill(o.steer_u, ENV_DEFAULT.steer_u), fill(o.steer_v, ENV_DEFAULT.steer_v)]);
+  }
+  return F;
+}
+function mlp(layers, x){
+  let h = x;
+  for (const L of layers){
+    const out = new Array(L.nOut);
+    for (let j = 0; j < L.nOut; j++) out[j] = L.b[j];
+    for (let i = 0; i < L.nIn; i++){ const xi = h[i]; if (xi === 0) continue; const base = i * L.nOut; for (let j = 0; j < L.nOut; j++) out[j] += xi * L.w[base + j]; }
+    h = L.act === "relu" ? out.map(v => v > 0 ? v : 0) : out;
+  }
+  return h;
+}
+function decode(y, lat0, lon0, wind0, d2l0){
+  const lat = [], lon = [], wind = [], d2l = [];
+  for (let k = 0; k < STEPS; k++){
+    lat.push(lat0 + y[k]);
+    lon.push((((lon0 + y[STEPS + k] + 180) % 360) + 360) % 360 - 180);
+    wind.push(Math.max(wind0 + y[2*STEPS + k], 0));
+    d2l.push(Math.max(d2l0 + y[3*STEPS + k], 0));
+  }
+  return {lat, lon, wind, d2l};
+}
+function forecastEnsemble(o){
+  const F = stormFeatures(o), n = F.length;
+  if (n < H + 1) throw new Error("Need at least " + (H + 1) + " observations, got " + n);
+  const last = F[n-1], pers = new Array(4 * STEPS).fill(0);
+  for (let k = 0; k < STEPS; k++){ pers[k] = (k+1) * last[IDX.dlat]; pers[STEPS + k] = (k+1) * last[IDX.dlon]; }
+  const x = [];
+  for (let t = n - H; t < n; t++) SC.feat_idx.forEach((f, j) => x.push((F[t][f] - SC.x_mean[j]) / SC.x_std[j]));
+  const Y = MODELS.map(M => mlp(M, x).map((v, i) => pers[i] + v * SC.r_std[i] + SC.r_mean[i]));
+  const lat0 = o.lat[n-1], lon0 = o.lon[n-1], w0 = o.wind[n-1], d0 = o.d2l[n-1];
+  const meanY = Y[0].map((_, i) => Y.reduce((s, y) => s + y[i], 0) / Y.length);
+  const members = Y.map(y => decode(y, lat0, lon0, w0, d0));
+  const ri = members.filter(m => m.wind[STEPS-1] - w0 >= 30).length / members.length;
+  const lf = d0 > 100 ? members.filter(m => m.d2l[STEPS-1] <= 100).length / members.length : null;
+  return {mean: decode(meanY, lat0, lon0, w0, d0), members, ri_prob: ri, landfall_prob: lf};
+}
+function colsFromObs(obs, e){
+  const rows = obs.slice(0, e + 1), nz = v => (v === null || v === undefined) ? NaN : Number(v);
+  return {lat: rows.map(r => r[1]), lon: rows.map(r => r[2]), wind: rows.map(r => r[3]), pres: rows.map(r => nz(r[4])),
+    d2l: rows.map(r => r[5]), sst: rows.map(r => nz(r[6])), shear: rows.map(r => nz(r[7])), steer_u: rows.map(r => nz(r[8])),
+    steer_v: rows.map(r => nz(r[9])), month: rows.map(r => parseInt(r[0].slice(5, 7), 10))};
+}
+function circleLatLon(lat0, lon0, rKm, n = 60){
+  const lat = [], lon = [], cl = Math.max(Math.cos(lat0 * Math.PI / 180), 0.1);
+  for (let i = 0; i < n; i++){ const th = 2 * Math.PI * i / (n - 1);
+    lat.push(lat0 + (rKm / 111.19) * Math.sin(th)); lon.push(lon0 + (rKm / (111.19 * cl)) * Math.cos(th)); }
+  return {lat, lon};
+}
+// ==== LOGIC END ====
+
+const $ = id => document.getElementById(id);
+const fmtLat = v => Math.abs(v).toFixed(1) + "°" + (v >= 0 ? "N" : "S");
+const fmtLon = v => Math.abs(v).toFixed(1) + "°" + (v >= 0 ? "E" : "W");
+const ptp = a => Math.max(...a) - Math.min(...a), mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const MAP_STYLES = {
+  coast:  {label: "Coastlines and countries (no key needed)", geo: true},
+  street: {label: "Street tiles (OpenStreetMap)", style: "open-street-map", layers: []},
+  sat:    {label: "Satellite tiles (Esri)", style: "white-bg", layers: [{below: "traces", sourcetype: "raster", sourceattribution: "Esri, Maxar, Earthstar Geographics",
+            source: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"]}]},
+  plain:  {label: "Plain (no background, works offline)", style: "white-bg", layers: []}
+};
+const LASTFIG = {};
+const card = (l, v, s, c) => `<div class="card" style="border-left-color:${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+
+function cardsHtml(fc, o){
+  const m = fc.mean, n = o.lat.length, [cat, col] = category(m.wind[STEPS-1]);
+  const moved = haversineKm(o.lat[n-1], o.lon[n-1], m.lat[STEPS-1], m.lon[STEPS-1]);
+  const riAuc = SUM.events.ri.auc, lfAuc = SUM.events.landfall.auc;
+  let riCol, riSub;
+  if (!(riAuc >= 0.6)){ riCol = "#9e9e9e"; riSub = `Experimental, low skill (test ROC-AUC ${riAuc.toFixed(2)}; 0.50 = chance). Do not rely on it.`; }
+  else { riCol = fc.ri_prob >= .5 ? "#e53935" : fc.ri_prob >= .2 ? "#fb8c00" : "#43a047"; riSub = `Ensemble chance of a gain of 30 kt or more in 24 h (test ROC-AUC ${riAuc.toFixed(2)})`; }
+  let c3;
+  if (fc.landfall_prob === null) c3 = card("Land interaction", "At / near land", `Predicted ${m.d2l[STEPS-1].toFixed(0)} km from land in 24 h`, "#6c757d");
+  else { const lf = fc.landfall_prob, lab = lf >= .6 ? ["High", "#e53935"] : lf >= .3 ? ["Moderate", "#fb8c00"] : ["Low", "#43a047"];
+    c3 = card("Landfall approach (24 h)", `${lab[0]} (${(lf*100).toFixed(0)}%)`, `Chance of being within 100 km of land (test ROC-AUC ${lfAuc.toFixed(2)}); mean ${m.d2l[STEPS-1].toFixed(0)} km away`, lab[1]); }
+  return card("Intensity in 24 h", m.wind[STEPS-1].toFixed(0) + " kt", `${cat} (now ${o.wind[n-1].toFixed(0)} kt)`, col)
+    + card("Position in 24 h", fmtLat(m.lat[STEPS-1]) + ", " + fmtLon(m.lon[STEPS-1]), `${moved.toFixed(0)} km from current position, ±${CONE[STEPS-1].toFixed(0)} km (67%)`, "#1e88e5")
+    + c3 + card("Rapid intensification", (fc.ri_prob * 100).toFixed(0) + "%", riSub, riCol);
+}
+function tableHtml(fc, obs, e){
+  const m = fc.mean, hasAct = obs && e + 1 < obs.length;
+  let h = "<table><tr><th>Lead (h)</th><th>Latitude</th><th>Longitude</th><th>Wind (kt)</th><th>Category</th><th>Distance to land (km)</th><th>Uncertainty ± (km)</th>"
+    + (hasAct ? "<th>Actual wind (kt)</th><th>Track error (km)</th>" : "") + "</tr>";
+  for (let k = 0; k < STEPS; k++){
+    h += `<tr><td>${6*(k+1)}</td><td>${m.lat[k].toFixed(2)}</td><td>${m.lon[k].toFixed(2)}</td><td>${m.wind[k].toFixed(0)}</td><td>${category(m.wind[k])[0]}</td><td>${m.d2l[k].toFixed(0)}</td><td>${CONE[k].toFixed(0)}</td>`;
+    if (hasAct){ const t = obs[e+k+1]; h += t ? `<td>${t[3].toFixed(0)}</td><td>${haversineKm(m.lat[k], m.lon[k], t[1], t[2]).toFixed(0)}</td>` : "<td></td><td></td>"; }
+    h += "</tr>";
+  }
+  return h + "</table>";
+}
+function mapFigure(obs, e, fc, title){
+  const lat = obs.map(r => r[1]), lon = obs.map(r => r[2]), m = fc.mean, T = [];
+  T.push({type:"MAP", mode:"lines", lat, lon, line:{width:3, color:"#b0b7c3"}, name:"Observed track", hoverinfo:"skip"});
+  for (let k = STEPS - 1; k >= 0; k--){ const c = circleLatLon(m.lat[k], m.lon[k], CONE[k]);
+    T.push({type:"MAP", mode:"lines", fill:"toself", fillcolor:"rgba(229,57,53,0.09)", lat:c.lat, lon:c.lon,
+      line:{width:1, color:"rgba(229,57,53,0.45)"}, hoverinfo:"skip", name:"Likely area (67% of past errors)", legendgroup:"cone", showlegend:k === STEPS - 1}); }
+  fc.members.forEach((mm, i) => T.push({type:"MAP", mode:"lines", lat:[lat[e], ...mm.lat], lon:[lon[e], ...mm.lon],
+    line:{width:1.5, color:"rgba(229,57,53,0.30)"}, hoverinfo:"skip", name:"Ensemble members", legendgroup:"mem", showlegend:i === 0}));
+  const hist = []; for (let i = Math.max(e - H + 1, 0); i <= e; i++) hist.push(i);
+  T.push({type:"MAP", mode:"lines+markers", lat:hist.map(i => lat[i]), lon:hist.map(i => lon[i]), line:{width:4, color:"#1e88e5"},
+    marker:{size:8, color:"#1e88e5"}, name:"Last 48 h (model input)", hoverinfo:"text", text:hist.map(i => `${obs[i][0]} UTC<br>${obs[i][3].toFixed(0)} kt`)});
+  T.push({type:"MAP", mode:"lines", lat:[lat[e], ...m.lat], lon:[lon[e], ...m.lon], line:{width:4, color:"#e53935"}, name:"Forecast (ensemble mean)", hoverinfo:"skip"});
+  const cats = m.wind.map(category);
+  T.push({type:"MAP", mode:"markers+text", lat:m.lat, lon:m.lon, marker:{size:15, color:cats.map(c => c[1])}, showlegend:false,
+    text:m.lat.map((_, k) => `+${6*(k+1)}h`), textposition:"top right", hoverinfo:"text",
+    hovertext:m.lat.map((_, k) => `<b>+${6*(k+1)} h</b><br>${m.wind[k].toFixed(0)} kt (${cats[k][0]})<br>${m.d2l[k].toFixed(0)} km from land<br>±${CONE[k].toFixed(0)} km (67%)`)});
+  if (e + STEPS < obs.length){ const idx = []; for (let i = e; i <= e + STEPS; i++) idx.push(i);
+    T.push({type:"MAP", mode:"lines+markers", lat:idx.map(i => lat[i]), lon:idx.map(i => lon[i]), line:{width:3, color:"#2e7d32"},
+      marker:{size:9, color:"#2e7d32"}, name:"What actually happened", hoverinfo:"text", text:idx.map(i => `${obs[i][0]} UTC<br>${obs[i][3].toFixed(0)} kt`)}); }
+  const pl = lat.slice(Math.max(e - H, 0), e + 1).concat(m.lat), po = lon.slice(Math.max(e - H, 0), e + 1).concat(m.lon);
+  const span = Math.max(ptp(pl), ptp(po) * Math.cos(mean(pl) * Math.PI / 180)) + 4;
+  const layout = {margin:{l:0, r:0, t:42, b:0}, height:580, title:{text:title, x:0.01, font:{size:16}},
+    legend:{x:0.01, y:0.97, bgcolor:"rgba(255,255,255,0.9)", font:{size:11}}};
+  const cLat = (Math.min(...pl) + Math.max(...pl)) / 2, cLon = (Math.min(...po) + Math.max(...po)) / 2;
+  const cl = Math.max(Math.cos(cLat * Math.PI / 180), 0.1), padKm = CONE[STEPS-1];
+  let latSpan = ptp(pl) + 2 * (padKm / 111.19 + 1.5), lonSpan = ptp(po) + 2 * (padKm / (111.19 * cl) + 1.5);
+  if (lonSpan * cl < latSpan * 1.8) lonSpan = latSpan * 1.8 / cl; else latSpan = lonSpan * cl / 1.8;
+  const bounds = {lat:[Math.max(cLat - latSpan / 2, -85), Math.min(cLat + latSpan / 2, 85)], lon:[cLon - lonSpan / 2, cLon + lonSpan / 2]};
+  return {data:T, layout, center:{lat:cLat, lon:cLon}, zoom:Math.min(8, Math.max(2.5, Math.log2(360 / (span * 1.5)))), bounds};
+}
+function draw(divId, fig){
+  LASTFIG[divId] = fig;
+  const m = MAP_STYLES[$("mapStyle").value || "coast"], layout = Object.assign({}, fig.layout);
+  fig.data.forEach(t => { t.type = m.geo ? "scattergeo" : "scattermapbox"; });
+  if (m.geo){
+    layout.geo = {projection:{type:"mercator"}, lonaxis:{range:fig.bounds.lon}, lataxis:{range:fig.bounds.lat}, resolution:50,
+      showland:true, landcolor:"#efeadb", showocean:true, oceancolor:"#d9eaf6", showlakes:true, lakecolor:"#d9eaf6",
+      showcountries:true, countrycolor:"#b8b2a3", showcoastlines:true, coastlinecolor:"#5f6b7a", showframe:true, framecolor:"#9aa5b1", bgcolor:"rgba(0,0,0,0)"};
+    layout.dragmode = "pan"; delete layout.mapbox;
+  } else {
+    layout.mapbox = {style:m.style, layers:m.layers, center:fig.center, zoom:fig.zoom}; delete layout.geo;
+  }
+  Plotly.newPlot(divId, fig.data, layout, {responsive:true, displaylogo:false, scrollZoom:true});
+}
+function setupMapStyle(){
+  $("mapStyle").innerHTML = Object.entries(MAP_STYLES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  $("mapStyle").value = "coast";
+  $("mapStyle").onchange = () => { for (const id of Object.keys(LASTFIG)) draw(id, LASTFIG[id]); };
+}
+
+function runHind(){
+  const obs = STORMS[$("storm").selectedIndex].obs, e = Math.min(Math.max(parseInt($("origin").value, 10), H), obs.length - 1);
+  const o = colsFromObs(obs, e), fc = forecastEnsemble(o);
+  $("hindCards").innerHTML = cardsHtml(fc, o);
+  draw("hindMap", mapFigure(obs, e, fc, `${$("storm").value}: forecast issued ${obs[e][0].slice(0, 16)} UTC`));
+  $("hindTable").innerHTML = tableHtml(fc, obs, e);
+}
+function setupHind(){
+  $("storm").innerHTML = STORMS.map(s => `<option>${s.name}</option>`).join("");
+  const sync = () => { const n = STORMS[$("storm").selectedIndex].obs.length; $("origin").min = H; $("origin").max = n - 1; $("origin").value = Math.min(H + 10, n - 1); $("originVal").textContent = $("origin").value; };
+  $("storm").onchange = () => { sync(); runHind(); };
+  $("origin").oninput = () => { $("originVal").textContent = $("origin").value; };
+  $("origin").onchange = runHind; $("runHind").onclick = runHind; sync();
+}
+function addGridRow(vals){
+  const tb = $("gridBody"), tr = document.createElement("tr"); let h = `<td class="n"></td>`;
+  for (let c = 0; c < 9; c++) h += `<td><input type="text" inputmode="decimal" data-c="${c}" value="${vals && vals[c] !== undefined ? vals[c] : ""}"></td>`;
+  tr.innerHTML = h; tb.appendChild(tr); renumber();
+}
+function renumber(){ [...$("gridBody").rows].forEach((r, i) => { r.cells[0].textContent = i + 1; }); }
+function setGrid(rows){ $("gridBody").innerHTML = ""; rows.forEach(r => addGridRow(r)); }
+function readGridRaw(){ return [...$("gridBody").rows].map(r => [...r.querySelectorAll("input")].map(i => i.value.trim())); }
+function readGrid(){ return [...$("gridBody").rows].map(r => [...r.querySelectorAll("input")].map(i => i.value.trim() === "" ? NaN : Number(i.value))); }
+function pasteInto(inputEl, text){
+  const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim() !== "").map(l => l.split(/[\t,;]/));
+  const r0 = inputEl.closest("tr").sectionRowIndex, c0 = parseInt(inputEl.dataset.c, 10);
+  while ($("gridBody").rows.length < r0 + lines.length) addGridRow();
+  lines.forEach((cells, i) => cells.forEach((v, j) => { const inp = $("gridBody").rows[r0 + i].querySelector(`input[data-c="${c0 + j}"]`); if (inp) inp.value = v.trim(); }));
+}
+function exampleRows(){
+  const obs = STORMS[0].obs, e = Math.min(H + 10, obs.length - 1), f = v => (v === null || v === undefined) ? "" : String(Math.round(v * 100) / 100);
+  return obs.slice(e - H, e + 1).map(r => [r[1], r[2], r[3], f(r[4]), r[5], f(r[6]), f(r[7]), f(r[8]), f(r[9])]);
+}
+function setupManual(){
+  $("month").innerHTML = Array.from({length: 12}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join("");
+  const obs = STORMS[0].obs, e = Math.min(H + 10, obs.length - 1);
+  $("month").value = parseInt(obs[e][0].slice(5, 7), 10);
+  setGrid(exampleRows());
+  $("addRow").onclick = () => addGridRow();
+  $("delRow").onclick = () => { const tb = $("gridBody"); if (tb.rows.length > 1) { tb.deleteRow(-1); renumber(); } };
+  $("resetGrid").onclick = () => setGrid(exampleRows());
+  $("gridBody").addEventListener("paste", ev => {
+    const t = ev.target; if (!t || t.tagName !== "INPUT") return;
+    const txt = (ev.clipboardData || window.clipboardData).getData("text");
+    if (!/[\n\t,;]/.test(txt.trim())) return;
+    ev.preventDefault(); pasteInto(t, txt);
+  });
+  $("runManual").onclick = () => {
+    $("manualMsg").textContent = "";
+    try {
+      const raw = readGridRaw(), names = ["lat", "lon", "wind", "pressure", "distance to land", "SST", "shear", "steering u", "steering v"];
+      let last = -1; raw.forEach((r, i) => { if (r.some(v => v !== "")) last = i; });
+      const good = [];
+      for (let i = 0; i <= last; i++) {
+        const r = raw[i];
+        if (r.every(v => v === "")) throw new Error(`Row ${i + 1} is empty. Rows must be consecutive 6-hourly observations with no gaps.`);
+        r.forEach((v, c) => { const required = [0, 1, 2, 4].includes(c);
+          if (v === "" ? required : !Number.isFinite(Number(v))) throw new Error(`Row ${i + 1}: ${names[c]} must be a number` + (required ? "." : " or left empty.")); });
+        good.push(r.map(v => v === "" ? NaN : Number(v)));
+      }
+      if (good.length < H + 1) throw new Error("Enter at least " + (H + 1) + " complete rows (lat, lon, wind and distance to land are required).");
+      const mo = parseInt($("month").value, 10), g = i => good.map(r => r[i]);
+      const o = {lat: g(0), lon: g(1), wind: g(2), pres: g(3), d2l: g(4), sst: g(5), shear: g(6), steer_u: g(7), steer_v: g(8), month: good.map(() => mo)};
+      const fc = forecastEnsemble(o), obs2 = good.map(r => [`2000-${String(mo).padStart(2, "0")}-01 00:00`, r[0], r[1], r[2]]);
+      $("manualCards").innerHTML = cardsHtml(fc, o);
+      draw("manualMap", mapFigure(obs2, obs2.length - 1, fc, "Forecast from your observations"));
+      $("manualTable").innerHTML = tableHtml(fc, null, 0);
+    } catch (err) { $("manualMsg").textContent = err.message; }
+  };
+}
+function drawImportance(){
+  if (!window.Plotly || !$("impChart")) return;
+  const e = Object.entries(SUM.importance).sort((a, b) => a[1].track - b[1].track);
+  Plotly.react("impChart", [{type:"bar", orientation:"h", x:e.map(v => v[1].track), y:e.map(v => v[0]), marker:{color:"#1e88e5"},
+    text:e.map(v => v[1].track.toFixed(0) + " km"), textposition:"outside", cliponaxis:false, hoverinfo:"x+y"}],
+    {height:300, margin:{l:250, r:60, t:10, b:50}, xaxis:{title:"Increase in 24 h track error when the group is shuffled (km)", rangemode:"tozero"}},
+    {responsive:true, displaylogo:false});
+}
+function renderEvidence(){
+  const p = SUM.perf, ev = SUM.events, imp = SUM.importance, maxv = Math.max(...Object.values(imp).map(v => v.track));
+  let h = `<h3>How well does it work?</h3><p class="muted">Held-out test: <b>${SUM.counts.test_storms} storms / ${SUM.counts.test_windows.toLocaleString()} forecasts</b> (never seen in training). Environmental data: <b>${SUM.use_env ? "used" : "not used"}</b>.</p>`
+    + "<div class='scroll'><table><tr><th>Model</th><th>12 h track error (km)</th><th>24 h track error (km)</th><th>24 h wind error (kt)</th></tr>"
+    + p.map(r => `<tr><td>${r.model}</td><td>${r.track_12h.toFixed(0)}</td><td>${r.track_24h.toFixed(0)}</td><td>${r.wind_24h.toFixed(1)}</td></tr>`).join("") + "</table></div>"
+    + "<p class='muted'>Lower is better. Persistence = the storm keeps its current motion and intensity; any useful model must beat it.</p>"
+    + "<h3>Does the extra information help? (same GRU, inputs added step by step)</h3><div class='scroll'><table><tr><th>Inputs</th><th>24 h track error (km)</th><th>24 h wind error (kt)</th></tr>"
+    + SUM.ablation.map(r => `<tr><td>${r.name}</td><td>${r.track_24h.toFixed(0)}</td><td>${r.wind_24h.toFixed(1)}</td></tr>`).join("") + "</table></div>"
+    + "<h3>What the model relies on (24 h track error added when a group is shuffled, km)</h3>"
+    + "<div id='impChart'></div>"
+    + "<h3>Risk indicators (held-out test)</h3><ul>"
+    + `<li><b>Rapid intensification (≥30 kt in 24 h):</b> ROC-AUC ${ev.ri.auc.toFixed(2)}; an alert at ≥40% chance catches ${(ev.ri.recall*100).toFixed(0)}% of events with ${(ev.ri.precision*100).toFixed(0)}% precision. Close to chance, so treat it as experimental.</li>`
+    + `<li><b>Landfall approach (within 100 km of land in 24 h):</b> ROC-AUC ${ev.landfall.auc.toFixed(2)}; recall ${(ev.landfall.recall*100).toFixed(0)}%, precision ${(ev.landfall.precision*100).toFixed(0)}%.</li>`
+    + `<li><b>Uncertainty circles:</b> 67th percentile of past 24 h errors (${CONE[STEPS-1].toFixed(0)} km); on the test set they contained the real position ${(SUM.coverage[STEPS-1]*100).toFixed(0)}% of the time (target about 67%).</li></ul>`
+    + "<h3>Limits</h3><p class='muted'>Reanalysis fields are coarse (2.5°) and daily; wind averaging periods differ between agencies; the model sees no satellite imagery. <b>Research and education demo, not an operational forecast.</b></p>";
+  $("evid").innerHTML = h;
+}
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".panel").forEach(x => x.classList.toggle("active", x.id === b.dataset.tab));
+  if (b.dataset.tab === "evid") drawImportance();
+  if (window.Plotly && Plotly.Plots) for (const id of ["hindMap", "manualMap"]) if ($(id).data) Plotly.Plots.resize($(id));
+});
+setupMapStyle(); setupHind(); setupManual(); renderEvidence(); runHind();
+</script>
+</body>
+</html>

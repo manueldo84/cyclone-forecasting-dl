@@ -1,0 +1,4 @@
+,track_km_12h,track_km_24h,wind_mae_12h,wind_mae_24h,d2l_mae_24h
+"Base: position, wind, geography, season",71.1,174.5,5.5,9.2,128.0
++ motion and pressure,70.6,173.3,5.4,9.1,134.1
+"+ environment (SST, shear, steering)",67.7,164.3,5.4,8.9,141.2

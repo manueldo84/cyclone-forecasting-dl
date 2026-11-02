@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+*.zip
+# large raw data is downloaded by the notebook and must not be committed (GitHub limit: 100 MB per file)
+data/*.csv
+data/*.nc
+ibtracs*.csv

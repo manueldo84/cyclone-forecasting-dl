@@ -1,0 +1,103 @@
+{
+ "perf": [
+  {
+   "model": "Persistence",
+   "track_12h": 74.57955958059007,
+   "track_24h": 189.4445534818265,
+   "wind_24h": 12.336001208094231
+  },
+  {
+   "model": "Ridge",
+   "track_12h": 68.12494988006186,
+   "track_24h": 167.7097667628517,
+   "wind_24h": 10.351370719426653
+  },
+  {
+   "model": "MLP",
+   "track_12h": 66.045089651365,
+   "track_24h": 160.57590403077782,
+   "wind_24h": 8.78491806708644
+  },
+  {
+   "model": "LSTM",
+   "track_12h": 68.58683550990204,
+   "track_24h": 167.65845239304184,
+   "wind_24h": 8.867284318426323
+  },
+  {
+   "model": "GRU",
+   "track_12h": 67.64526840202433,
+   "track_24h": 164.18990698751793,
+   "wind_24h": 8.939354244202656
+  },
+  {
+   "model": "Ensemble (5 x MLP)",
+   "track_12h": 64.65441015774528,
+   "track_24h": 157.13372596492013,
+   "wind_24h": 8.525224911255224
+  }
+ ],
+ "ablation": [
+  {
+   "name": "Base: position, wind, geography, season",
+   "track_24h": 174.50853176121174,
+   "wind_24h": 9.2438060725233
+  },
+  {
+   "name": "+ motion and pressure",
+   "track_24h": 173.3361078285021,
+   "wind_24h": 9.146137951533037
+  },
+  {
+   "name": "+ environment (SST, shear, steering)",
+   "track_24h": 164.31005171560787,
+   "wind_24h": 8.946161449242295
+  }
+ ],
+ "importance": {
+  "Position, wind, geography, season": {
+   "track": 91.14992004325785,
+   "wind": 8.238915208894925
+  },
+  "Storm motion and pressure": {
+   "track": 17.174656622334282,
+   "wind": 2.258657652972202
+  },
+  "Environment (SST, shear, steering)": {
+   "track": 77.60380862533222,
+   "wind": 2.115139458158536
+  }
+ },
+ "events": {
+  "ri": {
+   "n_events": 259,
+   "n": 6622,
+   "auc": 0.5372174558878944,
+   "precision": 0.625,
+   "recall": 0.05791505791505792,
+   "f1": 0.10600706713780919,
+   "threshold": 0.4
+  },
+  "landfall": {
+   "n_events": 619,
+   "n": 5667,
+   "auc": 0.7481603104542115,
+   "precision": 0.6889632107023411,
+   "recall": 0.33279483037156704,
+   "f1": 0.44880174291938996,
+   "threshold": 0.5
+  }
+ },
+ "coverage": [
+  0.6528239202657807,
+  0.6439142253095741,
+  0.6461794019933554,
+  0.6455753548776805
+ ],
+ "use_env": true,
+ "counts": {
+  "test_storms": 335,
+  "test_windows": 6622,
+  "windows": 45120
+ }
+}
